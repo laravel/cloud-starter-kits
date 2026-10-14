@@ -31,13 +31,13 @@ export default function Home() {
                             <li className="relative flex items-center gap-4 py-2 before:absolute before:top-1/2 before:bottom-0 before:left-[0.4rem] before:border-l before:border-[#e3e3e0]">
                                 <span className="relative bg-white py-1"><span className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-[#e3e3e0] bg-[#FDFDFC] shadow-[0px_0px_1px_0px_rgba(0,0,0,0.03),0px_1px_2px_0px_rgba(0,0,0,0.06)]"><span className="h-1.5 w-1.5 rounded-full bg-[#dbdbd7]"></span></span></span>
                                 <span>
-                                    Read the <a className="ml-1 inline-flex items-center gap-1 font-medium text-[#006aff] underline underline-offset-4" href="https://laravel.com/cloud/docs" target="_blank"><span>Documentation</span><svg className="h-2.5 w-2.5" viewBox="0 0 10 11" fill="none" aria-hidden="true"><path d="M7.70833 6.95834V2.79167H3.54167M2.5 8L7.5 3.00001" stroke="currentColor" strokeLinecap="square" /></svg></a>
+                                    Read the <a className="inline-flex items-center gap-1 font-medium text-[#006aff] underline underline-offset-4" href="https://laravel.com/cloud/docs" target="_blank"><span>Documentation</span><svg className="h-2.5 w-2.5" viewBox="0 0 10 11" fill="none" aria-hidden="true"><path d="M7.70833 6.95834V2.79167H3.54167M2.5 8L7.5 3.00001" stroke="currentColor" strokeLinecap="square" /></svg></a>
                                 </span>
                             </li>
                             <li className="relative flex items-center gap-4 py-2 before:absolute before:top-0 before:bottom-1/2 before:left-[0.4rem] before:border-l before:border-[#e3e3e0]">
                                 <span className="relative bg-white py-1"><span className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-[#e3e3e0] bg-[#FDFDFC] shadow-[0px_0px_1px_0px_rgba(0,0,0,0.03),0px_1px_2px_0px_rgba(0,0,0,0.06)]"><span className="h-1.5 w-1.5 rounded-full bg-[#dbdbd7]"></span></span></span>
                                 <span>
-                                    Set up your agent with the <a className="ml-1 inline-flex items-center gap-1 font-medium text-[#006aff] underline underline-offset-4" href="https://laravel.com/cloud/docs/api/cli" target="_blank"><span>Cloud CLI</span><svg className="h-2.5 w-2.5" viewBox="0 0 10 11" fill="none" aria-hidden="true"><path d="M7.70833 6.95834V2.79167H3.54167M2.5 8L7.5 3.00001" stroke="currentColor" strokeLinecap="square" /></svg></a>
+                                    Set up your agent with the <a className="inline-flex items-center gap-1 font-medium text-[#006aff] underline underline-offset-4" href="https://laravel.com/cloud/docs/api/cli" target="_blank"><span>Cloud CLI</span><svg className="h-2.5 w-2.5" viewBox="0 0 10 11" fill="none" aria-hidden="true"><path d="M7.70833 6.95834V2.79167H3.54167M2.5 8L7.5 3.00001" stroke="currentColor" strokeLinecap="square" /></svg></a>
                                 </span>
                             </li>
                         </ul>
