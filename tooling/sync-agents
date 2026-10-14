@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+#
+# Copies tooling/cloud.md into every kit's AGENTS.md (each top-level folder), between the
+# <!-- cloud:start --> and <!-- cloud:end --> markers.
+# Pass --check to fail instead of writing when a kit is out of date.
+
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+shared="$root/tooling/cloud.md"
+check=false
+[[ "${1:-}" == "--check" ]] && check=true
+stale=0
+
+for agents in "$root"/*/AGENTS.md; do
+    grep -q '<!-- cloud:start -->' "$agents" || continue
+
+    updated="$(awk -v shared="$shared" '
+        /<!-- cloud:start -->/ { print; print ""; while ((getline line < shared) > 0) print line; skipping = 1; next }
+        /<!-- cloud:end -->/ { skipping = 0 }
+        !skipping { print }
+    ' "$agents")"
+
+    if [[ "$updated" != "$(cat "$agents")" ]]; then
+        if $check; then
+            echo "Out of date: ${agents#"$root"/}"
+            stale=1
+        else
+            printf '%s\n' "$updated" > "$agents"
+            echo "Updated: ${agents#"$root"/}"
+        fi
+    fi
+done
+
+exit $stale
