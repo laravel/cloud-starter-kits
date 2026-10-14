@@ -2,10 +2,12 @@
 """
 Renders tooling/welcome/welcome.html into every kit's welcome screen.
 
-Each kit gets the same markup and CSS in its own templating, with the
-framework's name and a template expression for its running version filled
-in. Edit tooling/welcome/welcome.html, never the
-generated files, then run this script.
+The source is written with Tailwind classes. Kits with a Tailwind build
+(Next.js, Nuxt, Astro, Rails) get the markup inside their own layout. Kits
+without a frontend build on Cloud (Django, FastAPI, Go, Express) get a full
+HTML page that loads Tailwind's browser build from a CDN. Each kit's framework
+name and a template expression for its running version are filled in. Edit the
+source, never the generated files, then run this script.
 
 Pass --check to fail instead of writing when a kit is out of date.
 """
@@ -16,11 +18,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "tooling" / "welcome" / "welcome.html"
+TAILWIND_CDN = "https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"
 NOTICE = "Laravel Cloud welcome screen. Replace it with the app's own home page."
 
 KITS = {
     "astro": {
-        "format": "astro",
+        "format": "tailwind-astro",
         "target": "src/pages/index.astro",
         "framework": "Astro",
         "version": "{version}",
@@ -54,22 +57,21 @@ KITS = {
         "version": "{{.Version}}",
     },
     "nextjs": {
-        "format": "next",
+        "format": "tailwind-next",
         "target": "app/page.tsx",
-        "css": "app/welcome.css",
         "framework": "Next.js",
         "version": "{version}",
         "runtime": " · Node.js {process.versions.node}",
     },
     "nuxt": {
-        "format": "vue",
+        "format": "tailwind-vue",
         "target": "app/pages/index.vue",
         "framework": "Nuxt",
         "version": "{{ version }}",
         "runtime": " · Node.js {{ nodeVersion }}",
     },
     "rails": {
-        "format": "document",
+        "format": "tailwind-erb",
         "target": "app/views/pages/home.html.erb",
         "framework": "Rails",
         "version": "<%= Rails.version %>",
@@ -93,31 +95,47 @@ def fill(text: str, kit: dict) -> str:
     )
 
 
-def parts(source: str) -> tuple[str, str, str]:
-    """The document without its leading comment, the CSS, and the body markup."""
-    document = re.sub(r"<!--.*?-->\n", "", source, count=1, flags=re.S)
-    css = re.search(r"<style>\n(.*?)\n\s*</style>", document, re.S).group(1)
-    body = re.search(r"<body>\n(.*?)\n\s*</body>", document, re.S).group(1)
-    return document, dedent(css), dedent(body)
-
-
-def dedent(text: str) -> str:
-    lines = text.splitlines()
-    indent = min(len(line) - len(line.lstrip()) for line in lines if line.strip())
-    return "\n".join(line[indent:] for line in lines)
-
-
 def indent(text: str, spaces: int) -> str:
     return "\n".join((" " * spaces + line) if line else line for line in text.splitlines())
 
 
+def markup_of(source: str) -> str:
+    """The source without its leading comment."""
+    return re.sub(r"<!--.*?-->\n", "", source, count=1, flags=re.S).rstrip("\n")
+
+
+def jsx(markup: str) -> str:
+    for html, react in JSX_ATTRIBUTES.items():
+        markup = markup.replace(html, react)
+    return markup
+
+
 def render(kit: dict, source: str) -> dict[str, str]:
-    document, css, body = parts(source)
+    markup = fill(markup_of(source), kit)
+    title = f"{kit['framework']} on Laravel Cloud"
 
     if kit["format"] == "document":
-        return {kit["target"]: fill(document.replace("<html", f"<!-- {NOTICE} -->\n<html", 1), kit)}
+        return {
+            kit["target"]: (
+                "<!doctype html>\n"
+                f"<!-- {NOTICE} -->\n"
+                '<html lang="en">\n'
+                "    <head>\n"
+                '        <meta charset="utf-8" />\n'
+                '        <meta name="viewport" content="width=device-width, initial-scale=1" />\n'
+                f"        <title>{title}</title>\n"
+                '        <link rel="preconnect" href="https://fonts.bunny.net" />\n'
+                '        <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />\n'
+                f'        <script src="{TAILWIND_CDN}"></script>\n'
+                "    </head>\n"
+                "    <body>\n"
+                f"{indent(markup, 8)}\n"
+                "    </body>\n"
+                "</html>\n"
+            )
+        }
 
-    if kit["format"] == "astro":
+    if kit["format"] == "tailwind-astro":
         return {
             kit["target"]: (
                 "---\n"
@@ -125,16 +143,13 @@ def render(kit: dict, source: str) -> dict[str, str]:
                 "import Layout from '../layouts/Layout.astro';\n\n"
                 "const version = Astro.generator.replace(/^Astro v/, '');\n"
                 "---\n\n"
-                f'<Layout title="{kit["framework"]} on Laravel Cloud">\n'
-                f"{indent(fill(body, kit), 4)}\n"
-                "</Layout>\n\n"
-                "<style is:global>\n"
-                f"{indent(css, 4)}\n"
-                "</style>\n"
+                f'<Layout title="{title}">\n'
+                f"{indent(markup, 4)}\n"
+                "</Layout>\n"
             )
         }
 
-    if kit["format"] == "vue":
+    if kit["format"] == "tailwind-vue":
         return {
             kit["target"]: (
                 f"<!-- {NOTICE} -->\n"
@@ -142,7 +157,7 @@ def render(kit: dict, source: str) -> dict[str, str]:
                 "const version = useNuxtApp().versions.nuxt;\n"
                 "const nodeVersion = useState('node-version', () => process.versions.node);\n\n"
                 "useHead({\n"
-                f"    title: '{kit['framework']} on Laravel Cloud',\n"
+                f"    title: '{title}',\n"
                 "    link: [\n"
                 "        { rel: 'preconnect', href: 'https://fonts.bunny.net' },\n"
                 "        { rel: 'stylesheet', href: 'https://fonts.bunny.net/css?family=instrument-sans:400,500,600' },\n"
@@ -150,35 +165,40 @@ def render(kit: dict, source: str) -> dict[str, str]:
                 "});\n"
                 "</script>\n\n"
                 "<template>\n"
-                f"{indent(fill(body, kit), 4)}\n"
-                "</template>\n\n"
-                "<style>\n"
-                f"{indent(css, 0)}\n"
-                "</style>\n"
+                f"{indent(markup, 4)}\n"
+                "</template>\n"
             )
         }
 
-    if kit["format"] == "next":
-        jsx = fill(body, kit)
-        for html, react in JSX_ATTRIBUTES.items():
-            jsx = jsx.replace(html, react)
+    if kit["format"] == "tailwind-next":
         return {
-            kit["css"]: f"/* {NOTICE} */\n{css}\n",
             kit["target"]: (
                 f"// {NOTICE}\n"
                 "import type { Metadata } from 'next';\n"
-                "import next from 'next/package.json';\n"
-                "import './welcome.css';\n\n"
+                "import next from 'next/package.json';\n\n"
                 "export const metadata: Metadata = {\n"
-                f"    title: '{kit['framework']} on Laravel Cloud',\n"
+                f"    title: '{title}',\n"
                 "};\n\n"
                 "export default function Home() {\n"
                 "    const { version } = next;\n\n"
                 "    return (\n"
-                f"{indent(jsx, 8)}\n"
+                f"{indent(jsx(markup), 8)}\n"
                 "    );\n"
                 "}\n"
-            ),
+            )
+        }
+
+    if kit["format"] == "tailwind-erb":
+        return {
+            kit["target"]: (
+                f"<%# {NOTICE} %>\n"
+                f'<% content_for :title, "{title}" %>\n'
+                "<% content_for :head do %>\n"
+                '  <link rel="preconnect" href="https://fonts.bunny.net">\n'
+                '  <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet">\n'
+                "<% end %>\n\n"
+                f"{markup}\n"
+            )
         }
 
     raise ValueError(f"Unknown format: {kit['format']}")

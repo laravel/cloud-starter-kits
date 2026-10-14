@@ -39,6 +39,7 @@ Run the tests, the linter, the formatting check, and `manage.py check` after eve
 - The Python version comes from `.python-version`, read on every deploy.
 - Cloud sets `SECRET_KEY`, `DEBUG=false`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `STATIC_ROOT`, `STATIC_URL`, `WEB_CONCURRENCY`, and `APP_URL`. The settings already read all of them.
 - whitenoise serves static files, including the admin's.
+- **Tailwind CSS from a CDN:** the welcome screen loads Tailwind's browser build (`@tailwindcss/browser@4`), which compiles classes in the browser. That suits prototyping, but Tailwind doesn't recommend it for production. For a production app, compile Tailwind with its standalone CLI and serve the CSS file, or write plain CSS. Cloud runs no frontend build for this kit, so commit the compiled file.
 - **The database is SQLite, and Cloud's filesystem is ephemeral.** Anything saved, including admin users, is lost on the next deploy or restart. Before the app stores real data, attach a Postgres or MySQL database in Cloud, add `dj-database-url` and a driver (`psycopg[binary]` or `mysqlclient`), and build `DATABASES` from `DATABASE_URL`.
 
 <!-- cloud:start -->

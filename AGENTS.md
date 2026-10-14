@@ -23,7 +23,12 @@ Format `tooling/cloud.md` with Prettier (the root `.prettierrc`) before syncing,
 
 ## The welcome screen
 
-`tooling/welcome/welcome.html` is the welcome screen every kit serves at `/`. `tooling/sync-welcome` renders it into each kit's templating: a Django or ERB template, Go's `html/template`, an HTML file for Express and FastAPI, an Astro page, a Vue page, and JSX plus CSS for Next.js. Edit `tooling/welcome/welcome.html`, never the generated files, then run:
+`tooling/welcome/welcome.html` is the welcome screen every kit serves at `/`, written with Tailwind classes. `tooling/sync-welcome` renders it into each kit's templating:
+
+- Kits that build Tailwind CSS on Cloud's defaults (Next.js, Nuxt, Astro, Rails) get the markup inside their own layout: JSX, a Vue page, an Astro page, and an ERB view.
+- Kits with no frontend build on Cloud (Django, FastAPI, Go, Express) get a full HTML page that loads Tailwind's browser build from a CDN: a Django template, Go's `html/template`, or an HTML file.
+
+Edit `tooling/welcome/welcome.html`, never the generated files, then run:
 
 ```sh
 tooling/sync-welcome          # update every kit

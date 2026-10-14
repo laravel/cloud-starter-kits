@@ -35,6 +35,7 @@ Run the tests, `go vet`, and the formatting check after every change. All must p
 - Cloud detects Go, builds the repository root into a single binary with `CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o app .`, and starts it with `./app`.
 - The Go version comes from the `go` directive in `go.mod`, read on every deploy. Cloud uses the lowest supported version that satisfies it, so keep it at `go 1.27` or later.
 - Cloud sets `APP_URL` to the environment's URL.
+- **Tailwind CSS from a CDN:** the welcome screen loads Tailwind's browser build (`@tailwindcss/browser@4`), which compiles classes in the browser. That suits prototyping, but Tailwind doesn't recommend it for production. For a production app, compile Tailwind with its standalone CLI and serve the CSS file, or write plain CSS. Cloud runs no frontend build for this kit, so commit the compiled file.
 
 <!-- cloud:start -->
 

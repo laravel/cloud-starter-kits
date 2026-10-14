@@ -35,6 +35,7 @@ Run `npm test` and `npm run lint` after every change. Both must pass.
 - Cloud detects Express and starts the app with `node src/server.ts`, read from the `start` script. If you move the entry file, update the `start` script.
 - The Node.js version comes from `engines.node` in `package.json` when the environment is created. After that it's set in the environment's settings in Cloud.
 - Cloud sets `APP_URL` to the environment's URL.
+- **Tailwind CSS from a CDN:** the welcome screen loads Tailwind's browser build (`@tailwindcss/browser@4`), which compiles classes in the browser. That suits prototyping, but Tailwind doesn't recommend it for production. For a production app, compile Tailwind with its standalone CLI and serve the CSS file, or write plain CSS. Cloud doesn't run `npm run build` for Express, so commit the compiled file.
 
 <!-- cloud:start -->
 

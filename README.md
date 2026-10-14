@@ -5,12 +5,12 @@ Minimal starter apps for [Laravel Cloud](https://laravel.com/cloud), built as st
 | Kit | Stack |
 |---|---|
 | [`nextjs`](nextjs) | Next.js, App Router, TypeScript, Tailwind CSS |
-| [`nuxt`](nuxt) | Nuxt 4, server-side rendering, TypeScript |
+| [`nuxt`](nuxt) | Nuxt 4, server-side rendering, TypeScript, Tailwind CSS |
 | [`express`](express) | Express 5, TypeScript on Node.js 24 |
-| [`astro`](astro) | Astro, static output |
+| [`astro`](astro) | Astro, static output, Tailwind CSS |
 | [`fastapi`](fastapi) | FastAPI, Python 3.14, uv |
 | [`django`](django) | Django, Python 3.14, uv |
-| [`rails`](rails) | Ruby on Rails 8.1, Ruby 4.0 |
+| [`rails`](rails) | Ruby on Rails 8.1, Ruby 4.0, Tailwind CSS |
 | [`go`](go) | Go 1.27, standard library |
 
-Every kit has one page or route, one test, standard `test` and `lint` commands, and an `AGENTS.md` (with a `CLAUDE.md` pointing to it). None includes auth, a database, or a UI kit.
+Every kit has one page or route, one test, standard `test` and `lint` commands, and an `AGENTS.md` (with a `CLAUDE.md` pointing to it). None includes auth, a database, or a UI kit. Every kit uses Tailwind CSS: Next.js, Nuxt, Astro, and Rails build it, and the rest load Tailwind's browser build from a CDN.

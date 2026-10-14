@@ -34,6 +34,7 @@ Run the tests, the linter, and the formatting check after every change. All thre
 
 - Cloud detects FastAPI and starts the app with `uvicorn app.main:app --host '' --port $PORT`. Cloud installs the dependencies from `uv.lock` during the build.
 - The Python version comes from `.python-version`, read on every deploy.
+- **Tailwind CSS from a CDN:** the welcome screen loads Tailwind's browser build (`@tailwindcss/browser@4`), which compiles classes in the browser. That suits prototyping, but Tailwind doesn't recommend it for production. For a production app, compile Tailwind with its standalone CLI and serve the CSS file, or write plain CSS. Cloud runs no frontend build for this kit, so commit the compiled file.
 - Cloud sets `WEB_CONCURRENCY` to one worker per CPU core, and `APP_URL` to the environment's URL.
 
 <!-- cloud:start -->

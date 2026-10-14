@@ -1,6 +1,6 @@
 # Astro starter kit
 
-A minimal [Astro](https://astro.build) static site. It has one page, a welcome screen, one layout, and one test, and builds to plain HTML in `dist/`. It's a starting point: build the site the user asks for on top of it.
+A minimal [Astro](https://astro.build) static site with Tailwind CSS. It has one page, a welcome screen, one layout, and one test, and builds to plain HTML in `dist/`. It's a starting point: build the site the user asks for on top of it.
 
 ## Commands
 
@@ -21,7 +21,7 @@ When you start the dev server yourself, use background mode, `npx astro dev --ba
 ## Structure
 
 - `src/pages/` holds pages. Each `.astro` or `.md` file becomes a route. `src/pages/index.astro` is the Laravel Cloud welcome screen; replace it with the site's own home page.
-- `src/layouts/Layout.astro` is the HTML shell every page uses.
+- `src/layouts/Layout.astro` is the HTML shell every page uses. It imports `src/styles/global.css`, which imports Tailwind CSS, compiled by the `@tailwindcss/vite` plugin in `astro.config.mjs`.
 - `public/` holds files copied to the site root as they are.
 - `tests/` holds Vitest tests, which render components with Astro's container API.
 
