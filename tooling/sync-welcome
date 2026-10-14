@@ -1,0 +1,203 @@
+#!/usr/bin/env python3
+"""
+Renders tooling/welcome/welcome.html into every kit's welcome screen.
+
+Each kit gets the same markup and CSS in its own templating, with the
+framework's name and a template expression for its running version filled
+in. Edit tooling/welcome/welcome.html, never the
+generated files, then run this script.
+
+Pass --check to fail instead of writing when a kit is out of date.
+"""
+
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+SOURCE = ROOT / "tooling" / "welcome" / "welcome.html"
+NOTICE = "Laravel Cloud welcome screen. Replace it with the app's own home page."
+
+KITS = {
+    "astro": {
+        "format": "astro",
+        "target": "src/pages/index.astro",
+        "framework": "Astro",
+        "version": "{version}",
+    },
+    "django": {
+        "format": "document",
+        "target": "pages/templates/pages/home.html",
+        "framework": "Django",
+        "version": "{{ version }}",
+        "runtime": " · Python {{ python_version }}",
+    },
+    "express": {
+        "format": "document",
+        "target": "src/welcome.html",
+        "framework": "Express",
+        "version": "{{version}}",
+    },
+    "fastapi": {
+        "format": "document",
+        "target": "app/welcome.html",
+        "framework": "FastAPI",
+        "version": "{{version}}",
+        "runtime": " · Python {{python_version}}",
+    },
+    "go": {
+        "format": "document",
+        "target": "welcome.html",
+        "framework": "Go",
+        "version": "{{.Version}}",
+    },
+    "nextjs": {
+        "format": "next",
+        "target": "app/page.tsx",
+        "css": "app/welcome.css",
+        "framework": "Next.js",
+        "version": "{version}",
+    },
+    "nuxt": {
+        "format": "vue",
+        "target": "app/pages/index.vue",
+        "framework": "Nuxt",
+        "version": "{{ version }}",
+    },
+    "rails": {
+        "format": "document",
+        "target": "app/views/pages/home.html.erb",
+        "framework": "Rails",
+        "version": "<%= Rails.version %>",
+    },
+}
+
+JSX_ATTRIBUTES = {
+    "class=": "className=",
+    "fill-rule=": "fillRule=",
+    "clip-rule=": "clipRule=",
+    "stroke-linecap=": "strokeLinecap=",
+}
+
+
+def fill(text: str, kit: dict) -> str:
+    return (
+        text.replace("__FRAMEWORK__", kit["framework"])
+        .replace("__VERSION__", kit["version"])
+        .replace("__RUNTIME__", kit.get("runtime", ""))
+    )
+
+
+def parts(source: str) -> tuple[str, str, str]:
+    """The document without its leading comment, the CSS, and the body markup."""
+    document = re.sub(r"<!--.*?-->\n", "", source, count=1, flags=re.S)
+    css = re.search(r"<style>\n(.*?)\n\s*</style>", document, re.S).group(1)
+    body = re.search(r"<body>\n(.*?)\n\s*</body>", document, re.S).group(1)
+    return document, dedent(css), dedent(body)
+
+
+def dedent(text: str) -> str:
+    lines = text.splitlines()
+    indent = min(len(line) - len(line.lstrip()) for line in lines if line.strip())
+    return "\n".join(line[indent:] for line in lines)
+
+
+def indent(text: str, spaces: int) -> str:
+    return "\n".join((" " * spaces + line) if line else line for line in text.splitlines())
+
+
+def render(kit: dict, source: str) -> dict[str, str]:
+    document, css, body = parts(source)
+
+    if kit["format"] == "document":
+        return {kit["target"]: fill(document.replace("<html", f"<!-- {NOTICE} -->\n<html", 1), kit)}
+
+    if kit["format"] == "astro":
+        return {
+            kit["target"]: (
+                "---\n"
+                f"// {NOTICE}\n"
+                "import Layout from '../layouts/Layout.astro';\n\n"
+                "const version = Astro.generator.replace(/^Astro v/, '');\n"
+                "---\n\n"
+                f'<Layout title="{kit["framework"]} on Laravel Cloud">\n'
+                f"{indent(fill(body, kit), 4)}\n"
+                "</Layout>\n\n"
+                "<style is:global>\n"
+                f"{indent(css, 4)}\n"
+                "</style>\n"
+            )
+        }
+
+    if kit["format"] == "vue":
+        return {
+            kit["target"]: (
+                f"<!-- {NOTICE} -->\n"
+                '<script setup lang="ts">\n'
+                "const version = useNuxtApp().versions.nuxt;\n\n"
+                "useHead({\n"
+                f"    title: '{kit['framework']} on Laravel Cloud',\n"
+                "    link: [\n"
+                "        { rel: 'preconnect', href: 'https://fonts.bunny.net' },\n"
+                "        { rel: 'stylesheet', href: 'https://fonts.bunny.net/css?family=instrument-sans:400,500,600' },\n"
+                "    ],\n"
+                "});\n"
+                "</script>\n\n"
+                "<template>\n"
+                f"{indent(fill(body, kit), 4)}\n"
+                "</template>\n\n"
+                "<style>\n"
+                f"{indent(css, 0)}\n"
+                "</style>\n"
+            )
+        }
+
+    if kit["format"] == "next":
+        jsx = fill(body, kit)
+        for html, react in JSX_ATTRIBUTES.items():
+            jsx = jsx.replace(html, react)
+        return {
+            kit["css"]: f"/* {NOTICE} */\n{css}\n",
+            kit["target"]: (
+                f"// {NOTICE}\n"
+                "import type { Metadata } from 'next';\n"
+                "import next from 'next/package.json';\n"
+                "import './welcome.css';\n\n"
+                "export const metadata: Metadata = {\n"
+                f"    title: '{kit['framework']} on Laravel Cloud',\n"
+                "};\n\n"
+                "export default function Home() {\n"
+                "    const { version } = next;\n\n"
+                "    return (\n"
+                f"{indent(jsx, 8)}\n"
+                "    );\n"
+                "}\n"
+            ),
+        }
+
+    raise ValueError(f"Unknown format: {kit['format']}")
+
+
+def main() -> int:
+    check = "--check" in sys.argv[1:]
+    source = SOURCE.read_text()
+    stale = False
+
+    for name, kit in KITS.items():
+        for relative, content in render(kit, source).items():
+            path = ROOT / name / relative
+            if path.exists() and path.read_text() == content:
+                continue
+            if check:
+                print(f"Out of date: {name}/{relative}")
+                stale = True
+            else:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content)
+                print(f"Updated: {name}/{relative}")
+
+    return 1 if stale else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

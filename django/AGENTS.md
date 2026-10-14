@@ -1,6 +1,6 @@
 # Django starter kit
 
-A minimal [Django](https://www.djangoproject.com) app on Python 3.14, managed with [uv](https://docs.astral.sh/uv/). It has one project, one app with one page, and one test. It's a starting point: build the app the user asks for on top of it.
+A minimal [Django](https://www.djangoproject.com) app on Python 3.14, managed with [uv](https://docs.astral.sh/uv/). It has one project, one app serving a welcome screen, and one test. It's a starting point: build the app the user asks for on top of it.
 
 ## Commands
 
@@ -20,7 +20,7 @@ Run the tests, the linter, the formatting check, and `manage.py check` after eve
 ## Structure
 
 - `config/` is the Django project: `settings.py`, `urls.py`, and the WSGI and ASGI entry points.
-- `pages/` is the one app. `pages/views.py` holds the home view, and `pages/templates/pages/` its template.
+- `pages/` is the one app. `pages/views.py` holds the home view, and `pages/templates/pages/home.html` is the Laravel Cloud welcome screen it renders. Replace it with the app's own home page.
 - `tests/` holds pytest tests, run with pytest-django.
 - `pyproject.toml` lists dependencies, and `uv.lock` pins them.
 
@@ -72,5 +72,7 @@ Run background work as a custom worker background process on the environment, wi
 
 ### Managing the app
 
-Use the Laravel Cloud MCP server to deploy, read logs, change environment variables, and attach resources. Cloud's documentation for agents is at https://laravel.com/cloud/docs/llms.txt, and runtime details are at https://laravel.com/cloud/docs/runtimes.
+Use the [Laravel Cloud CLI](https://laravel.com/cloud/docs/api/cli) to deploy, read logs, change environment variables, and attach resources. It needs PHP 8.3 or later and Composer. Install it with `composer global require laravel/cloud-cli`, then run `cloud skills:install` to add Laravel Cloud skills to your agent. Run `cloud auth`, or set `LARAVEL_CLOUD_TOKEN` where a browser login isn't possible, and pass `-n` to every command so it never waits for input. A Laravel Cloud MCP server is coming and will cover the same tasks.
+
+Cloud's documentation for agents is at https://laravel.com/cloud/docs/llms.txt, and runtime details are at https://laravel.com/cloud/docs/runtimes.
 <!-- cloud:end -->

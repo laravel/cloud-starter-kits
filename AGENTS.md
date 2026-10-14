@@ -21,6 +21,17 @@ tooling/sync-agents --check  # fail if any kit is out of date
 
 Format `tooling/cloud.md` with Prettier (the root `.prettierrc`) before syncing, so the JavaScript kits' format checks pass. The Astro kit is static and has its own Cloud section, without the markers.
 
+## The welcome screen
+
+`tooling/welcome/welcome.html` is the welcome screen every kit serves at `/`. `tooling/sync-welcome` renders it into each kit's templating: a Django or ERB template, Go's `html/template`, an HTML file for Express and FastAPI, an Astro page, a Vue page, and JSX plus CSS for Next.js. Edit `tooling/welcome/welcome.html`, never the generated files, then run:
+
+```sh
+tooling/sync-welcome          # update every kit
+tooling/sync-welcome --check  # fail if any kit is out of date
+```
+
+The generated files are excluded from Prettier in the JavaScript kits, so formatting doesn't fight the generator. Keep each text and its link on one line in the source: JSX and Astro drop whitespace at line breaks next to an expression.
+
 ## Checking a kit
 
 Before committing, run the kit's test and lint commands from its `AGENTS.md` and start it the way Cloud does, checking that it answers on both `127.0.0.1` and `[::1]`.

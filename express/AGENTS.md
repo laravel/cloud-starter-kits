@@ -1,6 +1,6 @@
 # Express starter kit
 
-A minimal [Express 5](https://expressjs.com) app written in TypeScript and run directly by Node.js 24, with no build step. It has one route and one test. It's a starting point: build the app the user asks for on top of it.
+A minimal [Express 5](https://expressjs.com) app written in TypeScript and run directly by Node.js 24, with no build step. It serves a welcome screen at `/` and a JSON example at `/api`, with a test for each. It's a starting point: build the app the user asks for on top of it.
 
 ## Commands
 
@@ -18,6 +18,7 @@ Run `npm test` and `npm run lint` after every change. Both must pass.
 ## Structure
 
 - `src/app.ts` builds the Express app and registers routes. It doesn't listen, so tests can import it.
+- `src/welcome.html` is the Laravel Cloud welcome screen served at `/`. Replace it, and the `/` route, with the app's own home page.
 - `src/server.ts` starts the app on `PORT` and host `::`. Keep it this small.
 - `test/*.test.ts` holds the tests, run by the built-in `node:test` runner.
 
@@ -66,5 +67,7 @@ Run background work as a custom worker background process on the environment, wi
 
 ### Managing the app
 
-Use the Laravel Cloud MCP server to deploy, read logs, change environment variables, and attach resources. Cloud's documentation for agents is at https://laravel.com/cloud/docs/llms.txt, and runtime details are at https://laravel.com/cloud/docs/runtimes.
+Use the [Laravel Cloud CLI](https://laravel.com/cloud/docs/api/cli) to deploy, read logs, change environment variables, and attach resources. It needs PHP 8.3 or later and Composer. Install it with `composer global require laravel/cloud-cli`, then run `cloud skills:install` to add Laravel Cloud skills to your agent. Run `cloud auth`, or set `LARAVEL_CLOUD_TOKEN` where a browser login isn't possible, and pass `-n` to every command so it never waits for input. A Laravel Cloud MCP server is coming and will cover the same tasks.
+
+Cloud's documentation for agents is at https://laravel.com/cloud/docs/llms.txt, and runtime details are at https://laravel.com/cloud/docs/runtimes.
 <!-- cloud:end -->

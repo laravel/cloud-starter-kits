@@ -1,6 +1,6 @@
 # Next.js starter kit
 
-A minimal [Next.js](https://nextjs.org) app using the App Router, TypeScript, and Tailwind CSS. It has one page and one test. It's a starting point: build the app the user asks for on top of it.
+A minimal [Next.js](https://nextjs.org) app using the App Router, TypeScript, and Tailwind CSS. It has one page, a welcome screen, and one test. It's a starting point: build the app the user asks for on top of it.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
@@ -28,7 +28,7 @@ Run `npm test`, `npm run lint`, and `npm run build` after every change. All thre
 
 ## Structure
 
-- `app/` holds routes, using the App Router. `app/page.tsx` is the home page and `app/layout.tsx` the root layout.
+- `app/` holds routes, using the App Router. `app/page.tsx` is the Laravel Cloud welcome screen, styled by `app/welcome.css`, and `app/layout.tsx` is the root layout. Replace the page and delete `app/welcome.css` when building the app's own home page.
 - `app/globals.css` imports Tailwind CSS.
 - `public/` holds static files served from the site root.
 - `tests/` holds Vitest tests, run in jsdom with React Testing Library.
@@ -78,5 +78,7 @@ Run background work as a custom worker background process on the environment, wi
 
 ### Managing the app
 
-Use the Laravel Cloud MCP server to deploy, read logs, change environment variables, and attach resources. Cloud's documentation for agents is at https://laravel.com/cloud/docs/llms.txt, and runtime details are at https://laravel.com/cloud/docs/runtimes.
+Use the [Laravel Cloud CLI](https://laravel.com/cloud/docs/api/cli) to deploy, read logs, change environment variables, and attach resources. It needs PHP 8.3 or later and Composer. Install it with `composer global require laravel/cloud-cli`, then run `cloud skills:install` to add Laravel Cloud skills to your agent. Run `cloud auth`, or set `LARAVEL_CLOUD_TOKEN` where a browser login isn't possible, and pass `-n` to every command so it never waits for input. A Laravel Cloud MCP server is coming and will cover the same tasks.
+
+Cloud's documentation for agents is at https://laravel.com/cloud/docs/llms.txt, and runtime details are at https://laravel.com/cloud/docs/runtimes.
 <!-- cloud:end -->

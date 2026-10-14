@@ -1,15 +1,13 @@
-import type { Metadata } from 'next';
 import './globals.css';
-
-export const metadata: Metadata = {
-    title: 'Next.js starter kit',
-    description: 'A minimal Next.js app on Laravel Cloud',
-};
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
     return (
-        <html lang="en" className="h-full antialiased">
-            <body className="flex min-h-full flex-col">{children}</body>
+        <html lang="en">
+            <head>
+                <link rel="preconnect" href="https://fonts.bunny.net" />
+                <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
+            </head>
+            <body>{children}</body>
         </html>
     );
 }

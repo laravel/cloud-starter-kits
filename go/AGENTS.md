@@ -1,6 +1,6 @@
 # Go starter kit
 
-A minimal Go web app using only the standard library's `net/http`, on Go 1.27. It has one route and one test. It's a starting point: build the app the user asks for on top of it.
+A minimal Go web app using only the standard library's `net/http`, on Go 1.27. It serves a welcome screen at `/` and a JSON example at `/api`, with a test for each. It's a starting point: build the app the user asks for on top of it.
 
 ## Commands
 
@@ -19,6 +19,7 @@ Run the tests, `go vet`, and the formatting check after every change. All must p
 
 - `main.go` reads `PORT` and starts the server on host `::`. Keep it this small.
 - `routes.go` registers routes on an `http.ServeMux` and holds their handlers.
+- `welcome.html` is the Laravel Cloud welcome screen, embedded with `go:embed` and rendered by `html/template` at `/`. Replace it with the app's own home page.
 - `routes_test.go` tests handlers through `routes()` with `net/http/httptest`.
 - The module is called `app`. Rename it in `go.mod` to the repository's import path if the app grows into multiple packages that import each other.
 
@@ -66,5 +67,7 @@ Run background work as a custom worker background process on the environment, wi
 
 ### Managing the app
 
-Use the Laravel Cloud MCP server to deploy, read logs, change environment variables, and attach resources. Cloud's documentation for agents is at https://laravel.com/cloud/docs/llms.txt, and runtime details are at https://laravel.com/cloud/docs/runtimes.
+Use the [Laravel Cloud CLI](https://laravel.com/cloud/docs/api/cli) to deploy, read logs, change environment variables, and attach resources. It needs PHP 8.3 or later and Composer. Install it with `composer global require laravel/cloud-cli`, then run `cloud skills:install` to add Laravel Cloud skills to your agent. Run `cloud auth`, or set `LARAVEL_CLOUD_TOKEN` where a browser login isn't possible, and pass `-n` to every command so it never waits for input. A Laravel Cloud MCP server is coming and will cover the same tasks.
+
+Cloud's documentation for agents is at https://laravel.com/cloud/docs/llms.txt, and runtime details are at https://laravel.com/cloud/docs/runtimes.
 <!-- cloud:end -->
