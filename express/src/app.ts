@@ -4,7 +4,9 @@ import express from 'express';
 
 const { version } = createRequire(import.meta.url)('express/package.json') as { version: string };
 
-const welcome = readFileSync(new URL('./welcome.html', import.meta.url), 'utf8').replace('{{version}}', version);
+const welcome = readFileSync(new URL('./welcome.html', import.meta.url), 'utf8')
+    .replace('{{version}}', version)
+    .replace('{{node_version}}', process.versions.node);
 
 export const app = express();
 

@@ -24,6 +24,7 @@ KITS = {
         "target": "src/pages/index.astro",
         "framework": "Astro",
         "version": "{version}",
+        "runtime": " · Node.js {process.versions.node}",
     },
     "django": {
         "format": "document",
@@ -37,6 +38,7 @@ KITS = {
         "target": "src/welcome.html",
         "framework": "Express",
         "version": "{{version}}",
+        "runtime": " · Node.js {{node_version}}",
     },
     "fastapi": {
         "format": "document",
@@ -57,18 +59,21 @@ KITS = {
         "css": "app/welcome.css",
         "framework": "Next.js",
         "version": "{version}",
+        "runtime": " · Node.js {process.versions.node}",
     },
     "nuxt": {
         "format": "vue",
         "target": "app/pages/index.vue",
         "framework": "Nuxt",
         "version": "{{ version }}",
+        "runtime": " · Node.js {{ nodeVersion }}",
     },
     "rails": {
         "format": "document",
         "target": "app/views/pages/home.html.erb",
         "framework": "Rails",
         "version": "<%= Rails.version %>",
+        "runtime": " · Ruby <%= RUBY_VERSION %>",
     },
 }
 
@@ -134,7 +139,8 @@ def render(kit: dict, source: str) -> dict[str, str]:
             kit["target"]: (
                 f"<!-- {NOTICE} -->\n"
                 '<script setup lang="ts">\n'
-                "const version = useNuxtApp().versions.nuxt;\n\n"
+                "const version = useNuxtApp().versions.nuxt;\n"
+                "const nodeVersion = useState('node-version', () => process.versions.node);\n\n"
                 "useHead({\n"
                 f"    title: '{kit['framework']} on Laravel Cloud',\n"
                 "    link: [\n"

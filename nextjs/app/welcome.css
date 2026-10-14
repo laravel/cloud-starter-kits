@@ -20,30 +20,11 @@
     --button-text: #ffffff;
     --button-hover: #000000;
     --art-cover: #ffffff;
+    --art-dots: #80b5ff;
     --art-text: #00080c;
     --brand: #00080c;
     --brand-muted: #a6acb0;
-    color-scheme: light dark;
-}
-
-@media (prefers-color-scheme: dark) {
-    :root {
-        --page: #0a0a0a;
-        --text: #ededec;
-        --muted: #a1a09a;
-        --card: #161615;
-        --card-border: #fffaed2d;
-        --line: #3e3e3a;
-        --dot: #3e3e3a;
-        --link: #83b7ff;
-        --button: #eeeeec;
-        --button-text: #1c1c1a;
-        --button-hover: #ffffff;
-        --art-cover: #0a0a0a;
-        --art-text: #ffffff;
-        --brand: #ffffff;
-        --brand-muted: #a6acb0;
-    }
+    color-scheme: light;
 }
 
 body {
@@ -231,6 +212,7 @@ h1 {
     margin-bottom: -1px;
     overflow: hidden;
     border-radius: 0.5rem 0.5rem 0 0;
+    background: var(--art-dots);
     color: var(--art-text);
 }
 
@@ -248,11 +230,6 @@ h1 {
     inset: 0;
 }
 
-.art .noise {
-    width: 200%;
-    animation: drift 6s linear infinite;
-}
-
 .art .cover {
     color: var(--art-cover);
 }
@@ -265,18 +242,6 @@ h1 {
     font-weight: 600;
     letter-spacing: -0.02em;
     line-height: 1;
-}
-
-@keyframes drift {
-    to {
-        transform: translateX(-50%);
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .art .noise {
-        animation: none;
-    }
 }
 
 @media (min-width: 64rem) {

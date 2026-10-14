@@ -61,23 +61,10 @@ export default function Home() {
                     </ul>
                     <a className="button" href="https://cloud.laravel.com" target="_blank">Open dashboard</a>
                     <p className="version muted">
-                        Next.js {version}
+                        Next.js {version} · Node.js {process.versions.node}
                     </p>
                 </div>
                 <div className="art" aria-hidden="true">
-                    <svg className="noise" height="100%">
-                        <filter id="welcome-noise" x="0%" y="0%" width="100%" height="100%">
-                            <feTurbulence type="fractalNoise" baseFrequency="0.004" stitchTiles="stitch" seed="1" />
-                            <feColorMatrix type="matrix" values="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 1" />
-                            <feComponentTransfer>
-                                <feFuncR type="table" tableValues="0.15 0.25 0.45 0.7" />
-                                <feFuncG type="table" tableValues="0.35 0.45 0.62 0.8" />
-                                <feFuncB type="table" tableValues="1 1 1 1" />
-                            </feComponentTransfer>
-                        </filter>
-                        <rect id="welcome-noise-tile" width="50%" height="100%" filter="url(#welcome-noise)" />
-                        <use href="#welcome-noise-tile" x="50%" />
-                    </svg>
                     <svg className="cover" width="100%" height="100%">
                         <pattern id="welcome-dots" x="-3" y="-3" width="10" height="10" patternUnits="userSpaceOnUse">
                             <path

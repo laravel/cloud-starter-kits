@@ -21,7 +21,10 @@ test('the welcome page responds', async () => {
     const response = await fetch(`${baseUrl}/`);
 
     assert.equal(response.status, 200);
-    assert.match(await response.text(), /Your Express app is up and running on Laravel Cloud\./);
+    const html = await response.text();
+
+    assert.match(html, /Your Express app is up and running on Laravel Cloud\./);
+    assert.ok(html.includes(`Node.js ${process.versions.node}`));
 });
 
 test('the api responds', async () => {
