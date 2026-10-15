@@ -37,6 +37,14 @@ tooling/sync-welcome --check  # fail if any kit is out of date
 
 The generated files are excluded from Prettier in the JavaScript kits, so formatting doesn't fight the generator. Keep each text and its link on one line in the source: JSX and Astro drop whitespace at line breaks next to an expression.
 
+## Publishing
+
+Each kit is published to its own read-only template repository, `laravel/cloud-starter-<kit>`. On every push to `main`, `.github/workflows/split.yml` checks the generated files, runs each kit's tests and linters, and pushes the kit's folder history (`git subtree split`) to its repository. Pull requests run the same checks without publishing.
+
+The workflow pushes with the `SPLIT_TOKEN` secret, which needs write access to the contents of every split repository. When adding a kit, create `laravel/cloud-starter-<kit>` as a public template repository with issues and pull requests off, then add the kit to the workflow.
+
+Never put anything in a kit that only makes sense in this monorepo, such as contribution notes or CI workflows: the split repository is what customers copy.
+
 ## Checking a kit
 
 Before committing, run the kit's test and lint commands from its `AGENTS.md` and start it the way Cloud does, checking that it answers on both `127.0.0.1` and `[::1]`.
