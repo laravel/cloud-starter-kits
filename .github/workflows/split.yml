@@ -65,6 +65,8 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          # The split push authenticates with SPLIT_TOKEN. A persisted GITHUB_TOKEN would override it.
+          persist-credentials: false
 
       - if: matrix.lang == 'node'
         uses: actions/setup-node@v5
