@@ -39,9 +39,9 @@ The generated files are excluded from Prettier in the JavaScript kits, so format
 
 ## Publishing
 
-Each kit is published to its own read-only template repository, `laravel/cloud-starter-<kit>`. On every push to `main`, `.github/workflows/split.yml` checks the generated files, runs each kit's tests and linters, and pushes the kit's folder history (`git subtree split`) to its repository. Pull requests run the same checks without publishing. `.github/workflows/close-split-pull-requests.yml` closes pull requests opened on the split repositories every hour and points their authors here.
+Each kit is published to its own read-only template repository, `laravel/cloud-starter-<kit>`. On every push to `main`, `.github/workflows/split.yml` checks the generated files, runs each kit's tests and linters, and pushes the kit's folder history (`git subtree split`) to its repository. Pull requests run the same checks without publishing.
 
-Both workflows push with the `SPLIT_TOKEN` secret, which needs write access to the contents and pull requests of every split repository. When adding a kit, create `laravel/cloud-starter-<kit>` as a public template repository with issues off, then add the kit to both workflows.
+The workflow pushes with the `SPLIT_TOKEN` secret, which needs write access to the contents of every split repository. When adding a kit, create `laravel/cloud-starter-<kit>` as a public template repository with issues and pull requests off, then add the kit to the workflow.
 
 Never put anything in a kit that only makes sense in this monorepo, such as contribution notes or CI workflows: the split repository is what customers copy.
 

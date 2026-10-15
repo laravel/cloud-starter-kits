@@ -9,7 +9,7 @@
         "build": "next build",
         "start": "next start",
         "test": "vitest run",
-        "lint": "tsc --noEmit && eslint && prettier --check .",
+        "lint": "next typegen && tsc --noEmit && eslint && prettier --check .",
         "format": "prettier --write ."
     },
     "dependencies": {
