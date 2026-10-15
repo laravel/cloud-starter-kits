@@ -1,0 +1,33 @@
+# The laravel/cloud-starter-<kit> repositories are read-only copies of this one. This closes
+# any pull request opened on them and points its author here. It runs from this repository,
+# not the split ones, because a workflow inside a kit would be copied into every customer's
+# repository.
+
+name: Close split pull requests
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  close:
+    if: github.repository == 'laravel/cloud-starter-kits'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.SPLIT_TOKEN }}
+      COMMENT: >-
+        Thanks for your pull request! This repository is a read-only copy of a kit in
+        [laravel/cloud-starter-kits](https://github.com/laravel/cloud-starter-kits).
+        Please open your pull request there instead.
+    steps:
+      - run: |
+          for kit in astro nextjs nuxt express fastapi django rails go; do
+              repo="laravel/cloud-starter-$kit"
+              for pr in $(gh pr list --repo "$repo" --state open --json number --jq '.[].number'); do
+                  gh pr close "$pr" --repo "$repo" --comment "$COMMENT"
+              done
+          done

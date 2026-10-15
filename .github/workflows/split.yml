@@ -1,0 +1,108 @@
+# Tests every kit, then publishes each one to its own read-only template repository,
+# laravel/cloud-starter-<kit>, on every push to main. Pull requests run the checks and
+# tests only. The split repositories must already exist, and the SPLIT_TOKEN secret must
+# be able to push to them.
+
+name: Test and split
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Generated files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: tooling/sync-agents --check
+      - run: tooling/sync-welcome --check
+
+  kit:
+    name: ${{ matrix.kit }}
+    needs: sync
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - kit: astro
+            lang: node
+            run: npm test && npm run lint && npm run build
+          - kit: nextjs
+            lang: node
+            run: npm test && npm run lint && npm run build
+          - kit: nuxt
+            lang: node
+            run: npm test && npm run lint
+          - kit: express
+            lang: node
+            run: npm test && npm run lint
+          - kit: fastapi
+            lang: python
+            run: uv run pytest && uv run ruff check . && uv run ruff format --check .
+          - kit: django
+            lang: python
+            run: uv run pytest && uv run ruff check . && uv run ruff format --check . && uv run python manage.py check
+          - kit: rails
+            lang: ruby
+            run: bin/ci
+          - kit: go
+            lang: go
+            run: go test ./... && go vet ./... && test -z "$(gofmt -l .)"
+    defaults:
+      run:
+        working-directory: ${{ matrix.kit }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - if: matrix.lang == 'node'
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: ${{ matrix.kit }}/.nvmrc
+          cache: npm
+          cache-dependency-path: ${{ matrix.kit }}/package-lock.json
+      - if: matrix.lang == 'node'
+        run: npm ci
+
+      - if: matrix.lang == 'python'
+        uses: astral-sh/setup-uv@v7
+        with:
+          working-directory: ${{ matrix.kit }}
+      - if: matrix.lang == 'python'
+        run: uv sync --locked
+
+      - if: matrix.lang == 'ruby'
+        uses: ruby/setup-ruby@v1
+        with:
+          working-directory: ${{ matrix.kit }}
+          bundler-cache: true
+
+      - if: matrix.lang == 'go'
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: ${{ matrix.kit }}/go.mod
+          cache-dependency-path: ${{ matrix.kit }}/go.mod
+
+      - name: Test and lint
+        run: ${{ matrix.run }}
+
+      - name: Split and push
+        if: github.event_name == 'push' && github.repository == 'laravel/cloud-starter-kits'
+        working-directory: .
+        env:
+          KIT: ${{ matrix.kit }}
+          SPLIT_TOKEN: ${{ secrets.SPLIT_TOKEN }}
+        run: |
+          sha="$(git subtree split --prefix="$KIT" HEAD)"
+          git push "https://x-access-token:${SPLIT_TOKEN}@github.com/laravel/cloud-starter-${KIT}.git" "${sha}:refs/heads/main"
