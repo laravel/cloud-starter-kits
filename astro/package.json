@@ -16,15 +16,15 @@
     },
     "dependencies": {
         "@tailwindcss/vite": "^4.3.3",
-        "astro": "^7.3.8",
+        "astro": "^7.4.2",
         "tailwindcss": "^4.3.3"
     },
     "devDependencies": {
-        "@astrojs/check": "^0.9.10",
+        "@astrojs/check": "^0.9.12",
         "@types/node": "^24.19.2",
         "prettier": "^3.9.10",
         "prettier-plugin-astro": "^1.1.1",
         "typescript": "^6.0.3",
-        "vitest": "^5.0.4"
+        "vitest": "^5.0.5"
     }
 }
