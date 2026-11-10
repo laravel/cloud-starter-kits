@@ -1,206 +1,181 @@
-#!/usr/bin/env python3
-"""
-Generates the Laravel kits from their upstream Composer packages, the way
-Laravel Cloud's first deploy creates a new app with `composer create-project`.
+#!/usr/bin/env bash
+#
+# Generates the Laravel kits from their upstream Composer packages, the way Laravel Cloud's
+# first deploy creates a new app with `composer create-project`. Never edit those folders by hand.
+#
+# For each kit this downloads the package at one commit and runs what `composer create-project`
+# runs: the post-root-package-install script, a Composer update (whose post-update-cmd runs the
+# starter kits' feature installer), and the post-create-project-cmd scripts (Livewire's adds the
+# ⚡ prefix to its components). It then deletes the files Cloud never committed (.env,
+# database/database.sqlite, .github), runs `npm install` and `npm run build`, and keeps the
+# files the kit's own .gitignore lets Git commit, including composer.lock and package-lock.json.
+#
+#   tooling/sync-laravel                  Update every kit to the latest upstream version
+#   tooling/sync-laravel laravel-react    Update one kit
+#   tooling/sync-laravel --check [kit]    Fail if a kit differs from its pinned upstream version
+#
+# Updating resolves fresh dependencies with PHP 8.3, the kits' minimum version, so the lockfiles
+# install on every PHP version the kits support. It records each kit's upstream version and
+# commit in tooling/laravel-sources.json.
+#
+# --check rebuilds each kit from the commit recorded there, installing from the kit's committed
+# lockfiles, and compares every other file. It doesn't compare the lockfiles: they are its input,
+# not its output.
+#
+# Needs PHP, Composer, Node.js, curl, and jq.
 
-For each kit this downloads the package at the pinned commit, then runs what
-`composer create-project` runs: the post-root-package-install script, a
-Composer update (whose post-update-cmd runs the starter kits' feature installer),
-and the post-create-project-cmd scripts (Livewire's renames its components with
-the ⚡ prefix). It then deletes the files Cloud never committed (.env,
-database/database.sqlite, .github), runs `npm install` and `npm run build`, and
-keeps the files the kit's own .gitignore lets Git track, including
-composer.lock and package-lock.json.
+set -euo pipefail
 
-The Laravel folders are generated: never edit them by hand.
+root="$(cd "$(dirname "$0")/.." && pwd)"
+sources="$root/tooling/laravel-sources.json"
+php_version=8.3
 
-    tooling/sync-laravel                 Update every kit to the latest upstream version
-    tooling/sync-laravel laravel-react   Update one kit
-    tooling/sync-laravel --check [kit]   Fail if a kit differs from its pinned upstream version
+# Each kit's folder, package, and the version it tracks. "stable" tracks the latest tag, like
+# `laravel new`. The starter kits haven't been tagged since v1.0 (Svelte never), so they track
+# main, like `laravel new --react`.
+kits="laravel laravel/laravel stable
+laravel-react laravel/react-starter-kit dev-main
+laravel-vue laravel/vue-starter-kit dev-main
+laravel-livewire laravel/livewire-starter-kit dev-main
+laravel-svelte laravel/svelte-starter-kit dev-main"
 
-Updating resolves fresh dependencies with PHP 8.3, the kits' minimum version, so
-the lockfiles install on every PHP version the kits support. It records each
-kit's upstream version and commit in tooling/laravel-sources.json.
+check=false
+selected=" "
+for arg in "$@"; do
+    if [[ "$arg" == "--check" ]]; then
+        check=true
+    elif cut -d ' ' -f 1 <<< "$kits" | grep -qxF -- "$arg"; then
+        selected+="$arg "
+    else
+        echo "Unknown kit: $arg" >&2
+        exit 1
+    fi
+done
 
---check rebuilds each kit from the commit recorded there, installing from the
-kit's committed lockfiles, and compares every other file. It doesn't compare
-the lockfiles: they are its input, not its output.
-"""
+if ! $check; then
+    php="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')"
+    if [[ "$php" != "$php_version" ]]; then
+        echo "Run tooling/sync-laravel with PHP $php_version, the kits' minimum version, not $php." >&2
+        exit 1
+    fi
+fi
 
-import json
-import os
-import shutil
-import subprocess
-import sys
-import tarfile
-import tempfile
-import urllib.request
-from pathlib import Path
+# The starter kits' feature installer reads LARAVEL_INSTALLER_* flags, which Cloud never sets.
+for variable in $(compgen -e | grep '^LARAVEL_INSTALLER_' || true); do
+    unset "$variable"
+done
+export COMPOSER_NO_INTERACTION=1 COMPOSER_PROCESS_TIMEOUT=0
 
-ROOT = Path(__file__).resolve().parent.parent
-SOURCES = ROOT / "tooling" / "laravel-sources.json"
-LOCKFILES = ("composer.lock", "package-lock.json")
-PHP_VERSION = "8.3"
+workspace="$(mktemp -d)"
+trap 'rm -rf "$workspace"' EXIT
 
-# "stable" tracks the latest tag, like `laravel new`. The starter kits haven't been
-# tagged since v1.0 (Svelte never), so they track main, like `laravel new --react`.
-KITS = {
-    "laravel": {"package": "laravel/laravel", "version": "stable"},
-    "laravel-react": {"package": "laravel/react-starter-kit", "version": "dev-main"},
-    "laravel-vue": {"package": "laravel/vue-starter-kit", "version": "dev-main"},
-    "laravel-livewire": {"package": "laravel/livewire-starter-kit", "version": "dev-main"},
-    "laravel-svelte": {"package": "laravel/svelte-starter-kit", "version": "dev-main"},
+# Prints "<version> <commit>" for the newest stable release, or the given branch, on Packagist.
+latest() {
+    local suffix="~dev"
+    [[ "$2" == "stable" ]] && suffix=""
+    curl -fsSL "https://repo.packagist.org/p2/$1$suffix.json" | jq -r --arg package "$1" --arg version "$2" '
+        # Packagist minifies the list: each release only lists the keys that differ from the one before.
+        [foreach .packages[$package][] as $release ({}; . + $release | with_entries(select(.value != "__unset")))]
+        | map(select(if $version == "stable" then (.version_normalized | contains("-") | not) else .version == $version end))
+        | .[0] // error("\($package) has no \($version) release on Packagist")
+        | "\(.version) \(.dist.reference)"'
 }
 
-# Files `composer create-project` leaves that Cloud deleted before its first commit.
-# Cloud supplies .env and APP_KEY.
-REMOVE = (".env", "database/database.sqlite", ".github")
+# Lists the files Git would commit in a directory: tracked, or untracked and not ignored by a .gitignore file.
+committed() {
+    [[ -d "$1" ]] || return 0
+    (cd "$1" && git -c core.quotePath=false ls-files --cached --others --exclude-per-directory=.gitignore .) | LC_ALL=C sort -u
+}
 
+# Lists the files that differ in content or executable bit between two directories, given their file lists.
+differences() {
+    local a="$1" a_list="$2" b="$3" b_list="$4" path
+    {
+        LC_ALL=C comm -23 "$a_list" "$b_list"
+        LC_ALL=C comm -13 "$a_list" "$b_list"
+        LC_ALL=C comm -12 "$a_list" "$b_list" | while IFS= read -r path; do
+            if ! cmp -s "$a/$path" "$b/$path" || [[ "$(test -x "$a/$path" && echo 1)" != "$(test -x "$b/$path" && echo 1)" ]]; then
+                echo "$path"
+            fi
+        done
+    } | LC_ALL=C sort
+}
 
-def run(*command: str, cwd: Path) -> None:
-    subprocess.run(command, cwd=cwd, check=True, stdin=subprocess.DEVNULL)
+stale=0
 
+while read -r name package version <&3; do
+    [[ "$selected" == " " || "$selected" == *" $name "* ]] || continue
+    folder="$root/$name"
+    # npm names the app in package-lock.json after this directory.
+    app="$workspace/$name/app"
 
-def output(*command: str, cwd: Path = ROOT) -> str:
-    return subprocess.run(command, cwd=cwd, check=True, capture_output=True, text=True).stdout
+    if $check; then
+        release="$([[ -f "$sources" ]] && jq -r --arg kit "$name" '.[$kit] // empty | "\(.version) \(.reference)"' "$sources" || true)"
+        if [[ -z "$release" ]]; then
+            echo "Out of date: $name has no source in tooling/laravel-sources.json"
+            stale=1
+            continue
+        fi
+    else
+        release="$(latest "$package" "$version")"
+    fi
+    read -r release_version reference <<< "$release"
 
+    echo "Generating $name from $package $release_version (${reference:0:7})"
+    mkdir -p "$app"
+    curl -fsSL "https://codeload.github.com/$package/tar.gz/$reference" | tar -xzf - -C "$app" --strip-components=1
 
-def latest(package: str, version: str) -> dict:
-    """The newest stable release, or the given branch, as Packagist lists it."""
-    suffix = "" if version == "stable" else "~dev"
-    with urllib.request.urlopen(f"https://repo.packagist.org/p2/{package}{suffix}.json") as response:
-        releases = json.load(response)["packages"][package]
+    lock=""
+    if $check; then
+        for file in composer.lock package-lock.json; do
+            if [[ -f "$folder/$file" ]]; then
+                cp "$folder/$file" "$app/$file"
+            fi
+        done
+        # With the lockfile, --lock installs the locked versions but still runs post-update-cmd,
+        # as `composer create-project` does when it resolves fresh versions.
+        if [[ -f "$app/composer.lock" ]]; then
+            lock="--lock"
+        fi
+    fi
 
-    # Packagist minifies the list: each release only lists the keys that differ from the one before.
-    expanded = {}
-    for release in releases:
-        expanded = {**expanded, **release}
-        expanded = {key: value for key, value in expanded.items() if value != "__unset"}
-        stable = version == "stable" and "-" not in expanded["version_normalized"]
-        if stable or expanded["version"] == version:
-            return {"version": expanded["version"], "reference": expanded["dist"]["reference"]}
+    (
+        cd "$app"
+        composer run-script post-root-package-install
+        composer update --prefer-dist --no-progress $lock
+        composer run-script post-create-project-cmd
+        rm -rf .env database/database.sqlite .github
+        npm install --no-audit --no-fund
+        npm run build
+        git init --quiet
+    ) < /dev/null
 
-    raise SystemExit(f"{package} has no {version} release on Packagist")
+    committed "$app" > "$app.generated"
+    committed "$folder" > "$app.current"
+    differences "$app" "$app.generated" "$folder" "$app.current" > "$app.differences"
 
+    if $check; then
+        while IFS= read -r path; do
+            if [[ "$path" != "composer.lock" && "$path" != "package-lock.json" ]]; then
+                echo "Out of date: $name/$path"
+                stale=1
+            fi
+        done < "$app.differences"
+    elif [[ -s "$app.differences" || "$(jq -r --arg kit "$name" '.[$kit].reference // empty' "$sources" 2> /dev/null)" != "$reference" ]]; then
+        LC_ALL=C comm -13 "$app.generated" "$app.current" | while IFS= read -r path; do
+            rm -f "$folder/$path"
+        done
+        mkdir -p "$folder"
+        (cd "$app" && tar -cf - -T "$app.generated") | tar -xf - -C "$folder"
+        find "$folder" -type d -empty -delete
 
-def download(package: str, reference: str, target: Path) -> None:
-    """Extracts the package's GitHub archive, the dist Composer installs from Packagist."""
-    url = f"https://codeload.github.com/{package}/tar.gz/{reference}"
-    with urllib.request.urlopen(url) as response, tarfile.open(fileobj=response, mode="r|gz") as archive:
-        for member in archive:
-            # Strip the archive's top-level folder.
-            member.name = member.name.partition("/")[2]
-            if member.name:
-                archive.extract(member, target, filter="data")
+        [[ -f "$sources" ]] || echo '{}' > "$sources"
+        jq --indent 4 --arg kit "$name" --arg version "$release_version" --arg reference "$reference" \
+            '.[$kit] = {version: $version, reference: $reference} | to_entries | sort_by(.key) | from_entries' \
+            "$sources" > "$workspace/sources.json"
+        cat "$workspace/sources.json" > "$sources"
+        echo "Updated: $name"
+    fi
+done 3<<< "$kits"
 
-
-def tracked(directory: Path) -> list[str]:
-    """Files Git would commit in the directory: tracked, or untracked and not ignored by a .gitignore file."""
-    listing = output(
-        "git", "ls-files", "--cached", "--others", "--exclude-per-directory=.gitignore", "-z", ".", cwd=directory
-    )
-    return sorted(path for path in set(listing.split("\0")) if path and (directory / path).is_file())
-
-
-def generate(kit: dict, source: dict, lockfiles: dict[str, bytes], workspace: Path) -> dict[str, tuple[bytes, int]]:
-    app = workspace / "app"
-    app.mkdir()
-    download(kit["package"], source["reference"], app)
-
-    for name, content in lockfiles.items():
-        (app / name).write_bytes(content)
-
-    run("composer", "run-script", "post-root-package-install", cwd=app)
-    # With the lockfile, --lock installs the locked versions but still runs post-update-cmd,
-    # as `composer create-project` does when it resolves fresh versions.
-    run("composer", "update", "--prefer-dist", "--no-progress", *(["--lock"] if lockfiles else []), cwd=app)
-    run("composer", "run-script", "post-create-project-cmd", cwd=app)
-
-    for name in REMOVE:
-        path = app / name
-        shutil.rmtree(path) if path.is_dir() else path.unlink(missing_ok=True)
-
-    run("npm", "install", "--no-audit", "--no-fund", cwd=app)
-    run("npm", "run", "build", cwd=app)
-
-    output("git", "init", "--quiet", cwd=app)
-    return {path: ((app / path).read_bytes(), (app / path).stat().st_mode & 0o777) for path in tracked(app)}
-
-
-def current(folder: Path) -> dict[str, tuple[bytes, int]]:
-    if not folder.exists():
-        return {}
-    return {path: ((folder / path).read_bytes(), (folder / path).stat().st_mode & 0o777) for path in tracked(folder)}
-
-
-def write(folder: Path, files: dict[str, tuple[bytes, int]]) -> None:
-    for path in current(folder).keys() - files.keys():
-        (folder / path).unlink()
-    for path, (content, mode) in files.items():
-        target = folder / path
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(content)
-        target.chmod(mode)
-    for directory in sorted((d for d in folder.rglob("*") if d.is_dir()), reverse=True):
-        if not any(directory.iterdir()):
-            directory.rmdir()
-
-
-def main() -> int:
-    arguments = sys.argv[1:]
-    check = "--check" in arguments
-    names = [name for name in arguments if name != "--check"] or list(KITS)
-    if unknown := set(names) - KITS.keys():
-        raise SystemExit(f"Unknown kit: {', '.join(sorted(unknown))}")
-
-    if not check:
-        php = output("php", "-r", "echo PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;")
-        if php != PHP_VERSION:
-            raise SystemExit(f"Run tooling/sync-laravel with PHP {PHP_VERSION}, the kits' minimum version, not {php}.")
-
-    sources = json.loads(SOURCES.read_text()) if SOURCES.exists() else {}
-    # The starter kits' feature installer reads LARAVEL_INSTALLER_* flags, which Cloud never sets.
-    for key in [key for key in os.environ if key.startswith("LARAVEL_INSTALLER_")]:
-        del os.environ[key]
-    os.environ.update(COMPOSER_NO_INTERACTION="1", COMPOSER_PROCESS_TIMEOUT="0")
-    stale = False
-
-    for name in names:
-        kit = KITS[name]
-        folder = ROOT / name
-
-        if check:
-            if name not in sources:
-                print(f"Out of date: {name} has no source in {SOURCES.relative_to(ROOT)}")
-                stale = True
-                continue
-            source = sources[name]
-            lockfiles = {lock: (folder / lock).read_bytes() for lock in LOCKFILES if (folder / lock).exists()}
-        else:
-            source = latest(kit["package"], kit["version"])
-            lockfiles = {}
-
-        print(f"Generating {name} from {kit['package']} {source['version']} ({source['reference'][:7]})", flush=True)
-        with tempfile.TemporaryDirectory() as workspace:
-            files = generate(kit, source, lockfiles, Path(workspace))
-
-        existing = current(folder)
-        if check:
-            ignore = set(LOCKFILES)
-            differ = sorted(
-                path for path in (files.keys() | existing.keys()) - ignore if files.get(path) != existing.get(path)
-            )
-            for path in differ:
-                print(f"Out of date: {name}/{path}")
-            stale = stale or bool(differ)
-        elif files != existing or sources.get(name) != source:
-            write(folder, files)
-            sources[name] = source
-            SOURCES.write_text(json.dumps(dict(sorted(sources.items())), indent=4) + "\n")
-            print(f"Updated: {name}")
-
-    return 1 if stale else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+exit $stale
