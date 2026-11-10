@@ -1,0 +1,22 @@
+{
+    "laravel": {
+        "version": "v13.11.0",
+        "reference": "06d016a364a37430eec9cbc52209adce3d7667ce"
+    },
+    "laravel-livewire": {
+        "version": "dev-main",
+        "reference": "3be373acadbe7de05847487f1ff45eee150d1dd6"
+    },
+    "laravel-react": {
+        "version": "dev-main",
+        "reference": "360a762f27bee98798557de16e1c1e78eed61116"
+    },
+    "laravel-svelte": {
+        "version": "dev-main",
+        "reference": "4c9bed101aa463d19063dba0428b0138bbb01327"
+    },
+    "laravel-vue": {
+        "version": "dev-main",
+        "reference": "896f0d06df764d4318fb8b783c5cf737f2b12633"
+    }
+}
