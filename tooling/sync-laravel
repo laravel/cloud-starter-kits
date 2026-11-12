@@ -1,0 +1,181 @@
+#!/usr/bin/env bash
+#
+# Generates the Laravel kits from their upstream Composer packages, the way Laravel Cloud's
+# first deploy creates a new app with `composer create-project`. Never edit those folders by hand.
+#
+# For each kit this downloads the package at one commit and runs what `composer create-project`
+# runs: the post-root-package-install script, a Composer update (whose post-update-cmd runs the
+# starter kits' feature installer), and the post-create-project-cmd scripts (Livewire's adds the
+# ⚡ prefix to its components). It then deletes the files Cloud never committed (.env,
+# database/database.sqlite, .github), runs `npm install` and `npm run build`, and keeps the
+# files the kit's own .gitignore lets Git commit, including composer.lock and package-lock.json.
+#
+#   tooling/sync-laravel                  Update every kit to the latest upstream version
+#   tooling/sync-laravel laravel-react    Update one kit
+#   tooling/sync-laravel --check [kit]    Fail if a kit differs from its pinned upstream version
+#
+# Updating resolves fresh dependencies with PHP 8.3, the kits' minimum version, so the lockfiles
+# install on every PHP version the kits support. It records each kit's upstream version and
+# commit in tooling/laravel-sources.json.
+#
+# --check rebuilds each kit from the commit recorded there, installing from the kit's committed
+# lockfiles, and compares every other file. It doesn't compare the lockfiles: they are its input,
+# not its output.
+#
+# Needs PHP, Composer, Node.js, curl, and jq.
+
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+sources="$root/tooling/laravel-sources.json"
+php_version=8.3
+
+# Each kit's folder, package, and the version it tracks. "stable" tracks the latest tag, like
+# `laravel new`. The starter kits haven't been tagged since v1.0 (Svelte never), so they track
+# main, like `laravel new --react`.
+kits="laravel laravel/laravel stable
+laravel-react laravel/react-starter-kit dev-main
+laravel-vue laravel/vue-starter-kit dev-main
+laravel-livewire laravel/livewire-starter-kit dev-main
+laravel-svelte laravel/svelte-starter-kit dev-main"
+
+check=false
+selected=" "
+for arg in "$@"; do
+    if [[ "$arg" == "--check" ]]; then
+        check=true
+    elif cut -d ' ' -f 1 <<< "$kits" | grep -qxF -- "$arg"; then
+        selected+="$arg "
+    else
+        echo "Unknown kit: $arg" >&2
+        exit 1
+    fi
+done
+
+if ! $check; then
+    php="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')"
+    if [[ "$php" != "$php_version" ]]; then
+        echo "Run tooling/sync-laravel with PHP $php_version, the kits' minimum version, not $php." >&2
+        exit 1
+    fi
+fi
+
+# The starter kits' feature installer reads LARAVEL_INSTALLER_* flags, which Cloud never sets.
+for variable in $(compgen -e | grep '^LARAVEL_INSTALLER_' || true); do
+    unset "$variable"
+done
+export COMPOSER_NO_INTERACTION=1 COMPOSER_PROCESS_TIMEOUT=0
+
+workspace="$(mktemp -d)"
+trap 'rm -rf "$workspace"' EXIT
+
+# Prints "<version> <commit>" for the newest stable release, or the given branch, on Packagist.
+latest() {
+    local suffix="~dev"
+    [[ "$2" == "stable" ]] && suffix=""
+    curl -fsSL "https://repo.packagist.org/p2/$1$suffix.json" | jq -r --arg package "$1" --arg version "$2" '
+        # Packagist minifies the list: each release only lists the keys that differ from the one before.
+        [foreach .packages[$package][] as $release ({}; . + $release | with_entries(select(.value != "__unset")))]
+        | map(select(if $version == "stable" then (.version_normalized | contains("-") | not) else .version == $version end))
+        | .[0] // error("\($package) has no \($version) release on Packagist")
+        | "\(.version) \(.dist.reference)"'
+}
+
+# Lists the files Git would commit in a directory: tracked, or untracked and not ignored by a .gitignore file.
+committed() {
+    [[ -d "$1" ]] || return 0
+    (cd "$1" && git -c core.quotePath=false ls-files --cached --others --exclude-per-directory=.gitignore .) | LC_ALL=C sort -u
+}
+
+# Lists the files that differ in content or executable bit between two directories, given their file lists.
+differences() {
+    local a="$1" a_list="$2" b="$3" b_list="$4" path
+    {
+        LC_ALL=C comm -23 "$a_list" "$b_list"
+        LC_ALL=C comm -13 "$a_list" "$b_list"
+        LC_ALL=C comm -12 "$a_list" "$b_list" | while IFS= read -r path; do
+            if ! cmp -s "$a/$path" "$b/$path" || [[ "$(test -x "$a/$path" && echo 1)" != "$(test -x "$b/$path" && echo 1)" ]]; then
+                echo "$path"
+            fi
+        done
+    } | LC_ALL=C sort
+}
+
+stale=0
+
+while read -r name package version <&3; do
+    [[ "$selected" == " " || "$selected" == *" $name "* ]] || continue
+    folder="$root/$name"
+    # npm names the app in package-lock.json after this directory.
+    app="$workspace/$name/app"
+
+    if $check; then
+        release="$([[ -f "$sources" ]] && jq -r --arg kit "$name" '.[$kit] // empty | "\(.version) \(.reference)"' "$sources" || true)"
+        if [[ -z "$release" ]]; then
+            echo "Out of date: $name has no source in tooling/laravel-sources.json"
+            stale=1
+            continue
+        fi
+    else
+        release="$(latest "$package" "$version")"
+    fi
+    read -r release_version reference <<< "$release"
+
+    echo "Generating $name from $package $release_version (${reference:0:7})"
+    mkdir -p "$app"
+    curl -fsSL "https://codeload.github.com/$package/tar.gz/$reference" | tar -xzf - -C "$app" --strip-components=1
+
+    lock=""
+    if $check; then
+        for file in composer.lock package-lock.json; do
+            if [[ -f "$folder/$file" ]]; then
+                cp "$folder/$file" "$app/$file"
+            fi
+        done
+        # With the lockfile, --lock installs the locked versions but still runs post-update-cmd,
+        # as `composer create-project` does when it resolves fresh versions.
+        if [[ -f "$app/composer.lock" ]]; then
+            lock="--lock"
+        fi
+    fi
+
+    (
+        cd "$app"
+        composer run-script post-root-package-install
+        composer update --prefer-dist --no-progress $lock
+        composer run-script post-create-project-cmd
+        rm -rf .env database/database.sqlite .github
+        npm install --no-audit --no-fund
+        npm run build
+        git init --quiet
+    ) < /dev/null
+
+    committed "$app" > "$app.generated"
+    committed "$folder" > "$app.current"
+    differences "$app" "$app.generated" "$folder" "$app.current" > "$app.differences"
+
+    if $check; then
+        while IFS= read -r path; do
+            if [[ "$path" != "composer.lock" && "$path" != "package-lock.json" ]]; then
+                echo "Out of date: $name/$path"
+                stale=1
+            fi
+        done < "$app.differences"
+    elif [[ -s "$app.differences" || "$(jq -r --arg kit "$name" '.[$kit].reference // empty' "$sources" 2> /dev/null)" != "$reference" ]]; then
+        LC_ALL=C comm -13 "$app.generated" "$app.current" | while IFS= read -r path; do
+            rm -f "$folder/$path"
+        done
+        mkdir -p "$folder"
+        (cd "$app" && tar -cf - -T "$app.generated") | tar -xf - -C "$folder"
+        find "$folder" -type d -empty -delete
+
+        [[ -f "$sources" ]] || echo '{}' > "$sources"
+        jq --indent 4 --arg kit "$name" --arg version "$release_version" --arg reference "$reference" \
+            '.[$kit] = {version: $version, reference: $reference} | to_entries | sort_by(.key) | from_entries' \
+            "$sources" > "$workspace/sources.json"
+        cat "$workspace/sources.json" > "$sources"
+        echo "Updated: $name"
+    fi
+done 3<<< "$kits"
+
+exit $stale
