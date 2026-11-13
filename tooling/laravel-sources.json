@@ -5,7 +5,7 @@
     },
     "laravel-livewire": {
         "version": "dev-main",
-        "reference": "3be373acadbe7de05847487f1ff45eee150d1dd6"
+        "reference": "52bce9a263792421c6a44353efc6ba87130d5ec3"
     },
     "laravel-react": {
         "version": "dev-main",
