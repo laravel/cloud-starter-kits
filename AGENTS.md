@@ -49,7 +49,7 @@ The script gives each folder what `composer create-project` gives a new app. It 
 
 The rules for every kit don't apply to them: they're full Laravel apps, as upstream ships them. They don't get the shared Cloud section or the welcome screen either. The starter kits gitignore `AGENTS.md` and `CLAUDE.md`, and `laravel/laravel` ships its own.
 
-The "Sync Laravel kits" workflow (`.github/workflows/sync-laravel.yml`) reruns the sync every Monday and opens a pull request when anything changed. Run it from the Actions tab to update sooner, or run the script locally with PHP 8.3, Composer, Node.js 24, and jq:
+The daily dependency update, an Amp schedule that runs at 09:00 Berlin time, reruns the sync for each kit and pushes one commit per kit that changed, such as `laravel-react: sync with upstream`, to `main` once the kit passes its checks. To update sooner, run the script locally with PHP 8.3, Composer, Node.js 24, and jq:
 
 ```sh
 tooling/sync-laravel                  # regenerate every kit from the latest upstream version
