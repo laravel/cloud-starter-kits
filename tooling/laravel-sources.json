@@ -13,7 +13,7 @@
     },
     "laravel-svelte": {
         "version": "dev-main",
-        "reference": "4c9bed101aa463d19063dba0428b0138bbb01327"
+        "reference": "0c2f47b72ff81ec20452fd28f8846e7d88149b6b"
     },
     "laravel-vue": {
         "version": "dev-main",
